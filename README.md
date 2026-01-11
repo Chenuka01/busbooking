@@ -154,7 +154,12 @@ The frontend will open automatically at **http://localhost:3000**
 
 ---
 
-## 🔌 API Endpoints
+## � Quick demo (Replit + PlanetScale)
+If you want a free, no-card demo deployment, see `DEPLOY_REPLIT.md` for step-by-step instructions using PlanetScale (free MySQL) and Replit (free Node hosting). This is the fastest way to try the app publicly without adding card details.
+
+---
+
+## �🔌 API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|

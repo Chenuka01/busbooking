@@ -27,6 +27,13 @@ export default {
         danger: '#EF4444',
         warning: '#F59E0B',
       },
+      backgroundSize: {
+        'size-200': '200% 200%',
+      },
+      backgroundPosition: {
+        'pos-0': '0% 0%',
+        'pos-100': '100% 100%',
+      },
     },
   },
   plugins: [],
