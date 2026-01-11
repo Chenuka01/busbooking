@@ -6,9 +6,13 @@ import { motion } from 'framer-motion';
 const HomePage = ({ onSelectSchedule }) => {
     const [routes, setRoutes] = useState([]);
     const [schedules, setSchedules] = useState([]);
+    const [filteredSchedules, setFilteredSchedules] = useState([]);
     const [selectedRoute, setSelectedRoute] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedDate, setSelectedDate] = useState('');
+    const [selectedTime, setSelectedTime] = useState('');
+    const [busTypeFilter, setBusTypeFilter] = useState('all');
 
     // Fetch routes on component mount
     useEffect(() => {
@@ -23,6 +27,46 @@ const HomePage = ({ onSelectSchedule }) => {
             setSchedules([]);
         }
     }, [selectedRoute]);
+
+    // Filter schedules based on date, time, and bus type
+    useEffect(() => {
+        applyFilters();
+    }, [schedules, selectedDate, selectedTime, busTypeFilter]);
+
+    const applyFilters = () => {
+        let filtered = [...schedules];
+
+        // Filter by date
+        if (selectedDate) {
+            filtered = filtered.filter(schedule => {
+                const scheduleDate = new Date(schedule.travel_date).toISOString().split('T')[0];
+                return scheduleDate === selectedDate;
+            });
+        }
+
+        // Filter by time
+        if (selectedTime) {
+            filtered = filtered.filter(schedule => {
+                const scheduleTime = schedule.departure_time.substring(0, 5);
+                return scheduleTime >= selectedTime;
+            });
+        }
+
+        // Filter by bus type
+        if (busTypeFilter !== 'all') {
+            filtered = filtered.filter(schedule => 
+                schedule.bus_type.toLowerCase() === busTypeFilter.toLowerCase()
+            );
+        }
+
+        setFilteredSchedules(filtered);
+    };
+
+    const clearFilters = () => {
+        setSelectedDate('');
+        setSelectedTime('');
+        setBusTypeFilter('all');
+    };
 
     const fetchRoutes = async () => {
         try {
@@ -160,20 +204,110 @@ const HomePage = ({ onSelectSchedule }) => {
                             Available Schedules
                         </h2>
 
+                        {/* Advanced Filters */}
+                        <motion.div 
+                            className="mb-6 p-4 sm:p-5 rounded-xl bg-gradient-to-br from-slate-blue/5 to-indigo-50 border border-slate-blue/10"
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-base sm:text-lg font-semibold text-slate-blue flex items-center gap-2">
+                                    <span>🔍</span>
+                                    <span>Filter Schedules</span>
+                                </h3>
+                                {(selectedDate || selectedTime || busTypeFilter !== 'all') && (
+                                    <motion.button
+                                        onClick={clearFilters}
+                                        className="text-xs sm:text-sm text-coral hover:text-orange-600 font-semibold transition-colors"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        Clear All
+                                    </motion.button>
+                                )}
+                            </div>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                {/* Date Filter */}
+                                <div className="relative">
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                        📅 Travel Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-slate-blue focus:border-transparent transition-all text-sm sm:text-base"
+                                    />
+                                </div>
+
+                                {/* Time Filter */}
+                                <div className="relative">
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                        ⏰ Departure Time (After)
+                                    </label>
+                                    <input
+                                        type="time"
+                                        value={selectedTime}
+                                        onChange={(e) => setSelectedTime(e.target.value)}
+                                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-slate-blue focus:border-transparent transition-all text-sm sm:text-base"
+                                    />
+                                </div>
+
+                                {/* Bus Type Filter */}
+                                <div className="relative">
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                        🚌 Bus Type
+                                    </label>
+                                    <select
+                                        value={busTypeFilter}
+                                        onChange={(e) => setBusTypeFilter(e.target.value)}
+                                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-slate-blue focus:border-transparent transition-all text-sm sm:text-base appearance-none cursor-pointer"
+                                    >
+                                        <option value="all">All Types</option>
+                                        <option value="AC">AC</option>
+                                        <option value="Non-AC">Non-AC</option>
+                                        <option value="Luxury">Luxury</option>
+                                        <option value="Semi-Luxury">Semi-Luxury</option>
+                                    </select>
+                                </div>
+
+                                {/* Results Count */}
+                                <div className="flex items-end">
+                                    <div className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-signal-green/10 to-green-50 border-2 border-signal-green/20 rounded-lg">
+                                        <p className="text-xs text-gray-600 mb-1">Results Found</p>
+                                        <p className="text-xl sm:text-2xl font-bold text-signal-green">{filteredSchedules.length}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+
                         {loading && schedules.length === 0 ? (
                             <div className="text-center py-6 sm:py-8">
                                 <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-500 mx-auto"></div>
                                 <p className="text-gray-600 mt-3 sm:mt-4 text-sm sm:text-base">Loading schedules...</p>
                             </div>
-                        ) : schedules.length === 0 ? (
+                        ) : filteredSchedules.length === 0 ? (
                             <div className="text-center py-6 sm:py-8">
-                                <p className="text-gray-600 text-base sm:text-lg">
-                                    No schedules available for this route.
+                                <p className="text-gray-600 text-base sm:text-lg mb-3">
+                                    {schedules.length === 0 ? 'No schedules available for this route.' : 'No schedules match your filters.'}
                                 </p>
+                                {schedules.length > 0 && (
+                                    <motion.button
+                                        onClick={clearFilters}
+                                        className="px-4 py-2 bg-coral text-white rounded-lg hover:bg-orange-600 transition-all font-semibold text-sm"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        Clear Filters
+                                    </motion.button>
+                                )}
                             </div>
                         ) : (
                             <div className="space-y-3 sm:space-y-4">
-                                {schedules.map((schedule) => (
+                                {filteredSchedules.map((schedule) => (
                                     <div
                                         key={schedule.id}
                                         className="border border-slate-blue/20 rounded-xl p-4 sm:p-5 md:p-6 hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white/50 to-slate-blue/5"

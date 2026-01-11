@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/database');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { sendCancellationEmail } = require('../utils/emailService');
+const PDFDocument = require('pdfkit');
 
 // Apply authentication middleware to all admin routes
 router.use(authenticateToken);
@@ -190,6 +191,378 @@ router.get('/reports/occupancy', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch occupancy report',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/admin/reports/bookings
+ * Get bookings within a travel date range (admin-only). Query: startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ */
+router.get('/reports/bookings', async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        let query = `
+            SELECT 
+                b.id,
+                b.booking_uuid,
+                b.seat_number,
+                b.passenger_name,
+                b.passenger_phone,
+                b.booking_status,
+                b.amount_paid,
+                b.booked_at,
+                r.origin,
+                r.destination,
+                s.travel_date,
+                s.departure_time,
+                bus.bus_number
+            FROM Bookings b
+            JOIN Schedules s ON b.schedule_id = s.id
+            JOIN Routes r ON s.route_id = r.id
+            JOIN Buses bus ON s.bus_id = bus.id
+            WHERE 1=1
+        `;
+
+        const params = [];
+        if (startDate && endDate) {
+            query += ' AND DATE(s.travel_date) BETWEEN ? AND ?';
+            params.push(startDate, endDate);
+        }
+
+        query += ' ORDER BY s.travel_date DESC, s.departure_time DESC';
+
+        const [bookings] = await db.query(query, params);
+
+        const totalRevenue = bookings.reduce((sum, b) => sum + (parseFloat(b.amount_paid) || 0), 0);
+
+        res.json({
+            success: true,
+            count: bookings.length,
+            totalRevenue,
+            data: bookings
+        });
+
+    } catch (error) {
+        console.error('Error fetching booking report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch booking report',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/admin/reports/bookings/pdf
+ * Generate a PDF booking report for the date range and stream it as attachment
+ */
+router.post('/reports/bookings/pdf', async (req, res) => {
+    try {
+        const { startDate, endDate, title } = req.body;
+
+        let query = `
+            SELECT 
+                b.booking_uuid,
+                b.seat_number,
+                b.passenger_name,
+                b.passenger_phone,
+                b.booking_status,
+                b.amount_paid,
+                b.booked_at,
+                r.origin,
+                r.destination,
+                s.travel_date,
+                s.departure_time,
+                bus.bus_number
+            FROM Bookings b
+            JOIN Schedules s ON b.schedule_id = s.id
+            JOIN Routes r ON s.route_id = r.id
+            JOIN Buses bus ON s.bus_id = bus.id
+            WHERE 1=1
+        `;
+
+        const params = [];
+        if (startDate && endDate) {
+            query += ' AND DATE(s.travel_date) BETWEEN ? AND ?';
+            params.push(startDate, endDate);
+        }
+
+        query += ' ORDER BY s.travel_date DESC, s.departure_time DESC';
+
+        const [bookings] = await db.query(query, params);
+
+        // Generate PDF using PDFKit with professional design
+        const doc = new PDFDocument({ 
+            size: 'A4', 
+            margin: 50,
+            bufferPages: true,
+            info: {
+                Title: 'Bus Booking Report',
+                Author: 'Bus Booking System',
+                Subject: 'Booking Report'
+            }
+        });
+
+        // Set response headers for download
+        const fileName = `booking-report-${startDate || 'all'}-to-${endDate || 'all'}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+        // Pipe PDF to response
+        doc.pipe(res);
+
+        const pageWidth = doc.page.width;
+        const pageHeight = doc.page.height;
+        const margin = 50;
+
+        // Helper function to draw header on each page
+        const drawHeader = (pageNum) => {
+            // Company header with gradient effect (simulated with rectangles)
+            doc.rect(0, 0, pageWidth, 80).fill('#1e40af');
+            doc.rect(0, 0, pageWidth, 60).fill('#3b82f6');
+            
+            // Company name
+            doc.fontSize(24).fillColor('#ffffff').font('Helvetica-Bold')
+               .text('BUS BOOKING SYSTEM', margin, 20, { align: 'left' });
+            
+            doc.fontSize(10).fillColor('#e0e7ff')
+               .text('Professional Transport Management', margin, 48);
+            
+            // Report title on right
+            doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold')
+               .text(title || 'BOOKING REPORT', pageWidth - 250, 25, { width: 200, align: 'right' });
+            
+            // Page number
+            doc.fontSize(8).fillColor('#cbd5e1')
+               .text(`Page ${pageNum}`, pageWidth - 100, pageHeight - 30, { width: 50, align: 'right' });
+        };
+
+        // Draw first page header
+        drawHeader(1);
+        doc.moveDown(6);
+
+        // Date range banner
+        const rangeText = (startDate && endDate) ? `${startDate} to ${endDate}` : 'All Dates';
+        const bannerY = doc.y;
+        doc.roundedRect(margin, bannerY, pageWidth - 2 * margin, 35, 5)
+           .fill('#f1f5f9');
+        
+        doc.fontSize(11).fillColor('#475569').font('Helvetica-Bold')
+           .text('Report Period:', margin + 15, bannerY + 10)
+           .fontSize(12).fillColor('#0f172a').font('Helvetica')
+           .text(rangeText, margin + 110, bannerY + 10);
+        
+        doc.moveDown(3);
+
+        // Summary cards
+        const totalBookings = bookings.length;
+        const totalRevenue = bookings.reduce((sum, b) => sum + (parseFloat(b.amount_paid) || 0), 0);
+        const confirmedBookings = bookings.filter(b => b.booking_status === 'Confirmed').length;
+        const cancelledBookings = bookings.filter(b => b.booking_status === 'Cancelled').length;
+
+        const cardY = doc.y;
+        const cardWidth = (pageWidth - 2 * margin - 30) / 3;
+
+        // Card 1: Total Bookings
+        doc.roundedRect(margin, cardY, cardWidth, 60, 5).fill('#dbeafe');
+        doc.fontSize(10).fillColor('#1e40af').font('Helvetica')
+           .text('Total Bookings', margin + 10, cardY + 10);
+        doc.fontSize(24).fillColor('#1e3a8a').font('Helvetica-Bold')
+           .text(totalBookings.toString(), margin + 10, cardY + 28);
+
+        // Card 2: Total Revenue
+        doc.roundedRect(margin + cardWidth + 15, cardY, cardWidth, 60, 5).fill('#d1fae5');
+        doc.fontSize(10).fillColor('#047857').font('Helvetica')
+           .text('Total Revenue', margin + cardWidth + 25, cardY + 10);
+        doc.fontSize(20).fillColor('#065f46').font('Helvetica-Bold')
+           .text(`Rs. ${totalRevenue.toFixed(2)}`, margin + cardWidth + 25, cardY + 28);
+
+        // Card 3: Confirmed vs Cancelled
+        doc.roundedRect(margin + 2 * cardWidth + 30, cardY, cardWidth, 60, 5).fill('#fef3c7');
+        doc.fontSize(10).fillColor('#92400e').font('Helvetica')
+           .text('Status Breakdown', margin + 2 * cardWidth + 40, cardY + 10);
+        doc.fontSize(11).fillColor('#78350f').font('Helvetica')
+           .text(`✓ ${confirmedBookings} | ✗ ${cancelledBookings}`, margin + 2 * cardWidth + 40, cardY + 33);
+
+        doc.moveDown(5);
+
+        // Table header with background - A4 optimized layout with Time column
+        const tableTop = doc.y;
+        const tableWidth = pageWidth - 2 * margin;
+        
+        doc.roundedRect(margin, tableTop, tableWidth, 32, 3).fill('#334155');
+
+        // Optimized column widths for A4 page (595.28 x 841.89 points, usable: ~495px)
+        const colWidths = {
+            no: 18,           // #
+            uuid: 80,         // Booking ID
+            passenger: 70,    // Passenger
+            route: 75,        // Route
+            date: 50,         // Date
+            time: 38,         // Time
+            seat: 28,         // Seat
+            status: 55,       // Status
+            amount: 55        // Amount
+        };
+
+        // Calculate column X positions with 2px spacing
+        let currentX = margin + 2;
+        const colX = {};
+        ['no', 'uuid', 'passenger', 'route', 'date', 'time', 'seat', 'status', 'amount'].forEach(col => {
+            colX[col] = currentX;
+            currentX += colWidths[col] + 2;
+        });
+
+        // Draw table header text - set styles once, then draw each column
+        doc.fontSize(8);
+        doc.fillColor('#ffffff');
+        doc.font('Helvetica-Bold');
+        
+        doc.text('#', colX.no, tableTop + 11, { width: colWidths.no, align: 'left', lineBreak: false });
+        doc.text('Booking ID', colX.uuid, tableTop + 11, { width: colWidths.uuid, align: 'left', lineBreak: false });
+        doc.text('Passenger', colX.passenger, tableTop + 11, { width: colWidths.passenger, align: 'left', lineBreak: false });
+        doc.text('Route', colX.route, tableTop + 11, { width: colWidths.route, align: 'left', lineBreak: false });
+        doc.text('Date', colX.date, tableTop + 11, { width: colWidths.date, align: 'left', lineBreak: false });
+        doc.text('Time', colX.time, tableTop + 11, { width: colWidths.time, align: 'center', lineBreak: false });
+        doc.text('Seat', colX.seat, tableTop + 11, { width: colWidths.seat, align: 'center', lineBreak: false });
+        doc.text('Status', colX.status, tableTop + 11, { width: colWidths.status, align: 'center', lineBreak: false });
+        doc.text('Amount', colX.amount, tableTop + 11, { width: colWidths.amount, align: 'right', lineBreak: false });
+
+        doc.moveDown(3);
+
+        // Table rows with alternating colors
+        let y = doc.y;
+        const rowHeight = 28;
+        let pageNum = 1;
+
+        bookings.forEach((b, i) => {
+            if (y + rowHeight > pageHeight - 80) {
+                doc.addPage();
+                pageNum++;
+                drawHeader(pageNum);
+                y = 140;
+                
+                // Redraw table header on new page
+                doc.roundedRect(margin, y - 32, tableWidth, 32, 3);
+                doc.fill('#334155');
+                doc.fontSize(8);
+                doc.fillColor('#ffffff');
+                doc.font('Helvetica-Bold');
+                
+                doc.text('#', colX.no, y - 21, { width: colWidths.no, align: 'left', lineBreak: false });
+                doc.text('Booking ID', colX.uuid, y - 21, { width: colWidths.uuid, align: 'left', lineBreak: false });
+                doc.text('Passenger', colX.passenger, y - 21, { width: colWidths.passenger, align: 'left', lineBreak: false });
+                doc.text('Route', colX.route, y - 21, { width: colWidths.route, align: 'left', lineBreak: false });
+                doc.text('Date', colX.date, y - 21, { width: colWidths.date, align: 'left', lineBreak: false });
+                doc.text('Time', colX.time, y - 21, { width: colWidths.time, align: 'center', lineBreak: false });
+                doc.text('Seat', colX.seat, y - 21, { width: colWidths.seat, align: 'center', lineBreak: false });
+                doc.text('Status', colX.status, y - 21, { width: colWidths.status, align: 'center', lineBreak: false });
+                doc.text('Amount', colX.amount, y - 21, { width: colWidths.amount, align: 'right', lineBreak: false });
+            }
+
+            // Alternating row background
+            if (i % 2 === 0) {
+                doc.rect(margin, y - 3, tableWidth, rowHeight).fill('#f8fafc');
+            } else {
+                doc.rect(margin, y - 3, tableWidth, rowHeight).fill('#ffffff');
+            }
+            
+            // Draw row border
+            doc.strokeColor('#e2e8f0').lineWidth(0.5)
+               .moveTo(margin, y + rowHeight - 3)
+               .lineTo(pageWidth - margin, y + rowHeight - 3)
+               .stroke();
+
+            // Prepare data with smart truncation
+            const routeText = `${b.origin.substring(0, 7)}→${b.destination.substring(0, 7)}`;
+            const travelDate = b.travel_date ? new Date(b.travel_date).toLocaleDateString('en-GB').substring(0, 10) : '';
+            const departureTime = b.departure_time ? b.departure_time.substring(0, 5) : '';
+            const bookingId = b.booking_uuid.length > 14 ? b.booking_uuid.substring(0, 11) + '...' : b.booking_uuid;
+            const passengerName = b.passenger_name.length > 14 ? b.passenger_name.substring(0, 11) + '...' : b.passenger_name;
+            
+            // Status color
+            let statusColor, statusBg;
+            if (b.booking_status === 'Confirmed') {
+                statusColor = '#059669';
+                statusBg = '#d1fae5';
+            } else if (b.booking_status === 'Cancelled') {
+                statusColor = '#dc2626';
+                statusBg = '#fee2e2';
+            } else {
+                statusColor = '#6b7280';
+                statusBg = '#f3f4f6';
+            }
+
+            const yPos = y + 8;
+
+            // Row number
+            doc.fontSize(7);
+            doc.fillColor('#475569');
+            doc.font('Helvetica');
+            doc.text((i + 1).toString(), colX.no, yPos, { width: colWidths.no, align: 'left', lineBreak: false });
+
+            // Booking ID
+            doc.fontSize(7);
+            doc.fillColor('#0f172a');
+            doc.text(bookingId, colX.uuid, yPos, { width: colWidths.uuid, align: 'left', lineBreak: false });
+
+            // Passenger Name
+            doc.text(passengerName, colX.passenger, yPos, { width: colWidths.passenger, align: 'left', lineBreak: false });
+
+            // Route
+            doc.text(routeText, colX.route, yPos, { width: colWidths.route, align: 'left', lineBreak: false });
+
+            // Date
+            doc.text(travelDate, colX.date, yPos, { width: colWidths.date, align: 'left', lineBreak: false });
+
+            // Time
+            doc.fillColor('#1e40af');
+            doc.font('Helvetica-Bold');
+            doc.text(departureTime, colX.time, yPos, { width: colWidths.time, align: 'center', lineBreak: false });
+
+            // Seat
+            doc.fontSize(8);
+            doc.text(b.seat_number, colX.seat, yPos, { width: colWidths.seat, align: 'center', lineBreak: false });
+            
+            // Status badge
+            const statusBadgeWidth = colWidths.status - 2;
+            doc.roundedRect(colX.status, y + 5, statusBadgeWidth, 16, 3);
+            doc.fill(statusBg);
+            doc.fontSize(7);
+            doc.fillColor(statusColor);
+            doc.text(b.booking_status, colX.status + 1, y + 9, { width: statusBadgeWidth - 2, align: 'center', lineBreak: false });
+            
+            // Amount
+            doc.fillColor('#0f172a');
+            doc.text(`Rs ${(parseFloat(b.amount_paid) || 0).toFixed(2)}`, colX.amount, yPos, { width: colWidths.amount, align: 'right', lineBreak: false });
+
+            y += rowHeight;
+        });
+
+        // Footer section
+        doc.moveDown(2);
+        const footerY = doc.y;
+        doc.rect(margin, footerY, pageWidth - 2 * margin, 40).fill('#f1f5f9');
+        
+        doc.fontSize(9).fillColor('#475569').font('Helvetica')
+           .text(`Generated on: ${new Date().toLocaleString('en-GB', { 
+               year: 'numeric', month: 'long', day: 'numeric', 
+               hour: '2-digit', minute: '2-digit' 
+           })}`, margin + 10, footerY + 8);
+        
+        doc.fontSize(8).fillColor('#64748b')
+           .text('This is a computer-generated report. No signature required.', margin + 10, footerY + 24);
+
+        doc.end();
+
+    } catch (error) {
+        console.error('Error generating booking report PDF:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate PDF report',
             error: error.message
         });
     }

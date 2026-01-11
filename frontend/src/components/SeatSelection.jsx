@@ -256,6 +256,10 @@ const BookingForm = ({ seat, schedule, onClose, onSuccess }) => {
                 onSuccess(result.data);
                 // toast
                 showToast('success', 'Booking confirmed successfully!');
+                // Notify other parts of the app to refresh booking counts/lists
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('bookings:updated'));
+                }
             } else {
                 const msg = result.message || 'Booking failed. Please try again.';
                 setError(msg);

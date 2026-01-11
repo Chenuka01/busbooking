@@ -15,6 +15,8 @@ const Profile = ({ onBack }) => {
     phone: ''
   });
   const [loading, setLoading] = useState(false);
+  const [totalBookings, setTotalBookings] = useState(0);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
@@ -25,6 +27,41 @@ const Profile = ({ onBack }) => {
       });
     }
   }, [user]);
+
+  // Fetch total bookings for this user (admins will get all bookings)
+  useEffect(() => {
+    const fetchTotalBookings = async () => {
+      setStatsLoading(true);
+      try {
+        const response = await api.get('/bookings');
+        // Backend returns `count` and `data`
+        const count = response.data?.count ?? (response.data?.data?.length ?? 0);
+        setTotalBookings(count);
+      } catch (err) {
+        console.error('Error fetching bookings count:', err);
+        showToast('error', 'Failed to load booking statistics');
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    if (user) fetchTotalBookings();
+
+    // Listen for booking updates (created/cancelled) to refresh count
+    const onBookingsUpdated = () => {
+      fetchTotalBookings();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('bookings:updated', onBookingsUpdated);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('bookings:updated', onBookingsUpdated);
+      }
+    };
+  }, [user, showToast]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -267,7 +304,19 @@ const Profile = ({ onBack }) => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Total Bookings</span>
-                  <span className="font-semibold text-signal-green">0</span>
+                  <span className="font-semibold text-signal-green">
+                    {statsLoading ? (
+                      <span className="inline-flex items-center gap-2">
+                        <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                        <span className="text-sm text-gray-600">Loading...</span>
+                      </span>
+                    ) : (
+                      totalBookings
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Account Status</span>

@@ -41,7 +41,11 @@ const MyBookings = ({ onBack }) => {
       await api.patch(`/bookings/${bookingUuid}/cancel`);
       showToast('success', 'Booking cancelled successfully');
       // Refresh bookings
-      fetchBookings();
+      await fetchBookings();
+      // Notify other parts of the app to refresh booking counts/lists
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('bookings:updated'));
+      }
     } catch (err) {
       console.error('Error cancelling booking:', err);
       const message = err.response?.data?.message || 'Failed to cancel booking';

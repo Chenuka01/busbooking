@@ -165,6 +165,18 @@ export const adminAPI = {
         return response.data;
     },
 
+    // Get bookings report filtered by travel date range
+    getBookingReport: async (startDate, endDate) => {
+        const response = await api.get('/admin/reports/bookings', { params: { startDate, endDate } });
+        return response.data;
+    },
+
+    // Generate PDF booking report for a date range
+    generateBookingReportPDF: async (startDate, endDate, title = '') => {
+        const response = await api.post('/admin/reports/bookings/pdf', { startDate, endDate, title }, { responseType: 'blob' });
+        return response;
+    },
+
     // Get all users
     getUsers: async () => {
         const response = await api.get('/admin/users');

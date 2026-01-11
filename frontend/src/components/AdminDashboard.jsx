@@ -16,6 +16,13 @@ const AdminDashboard = ({ userView = false }) => {
     const [selectedIds, setSelectedIds] = useState([]);
     const { user, isAdmin } = useAuth();
 
+    // Report generator states
+    const [reportStartDate, setReportStartDate] = useState('');
+    const [reportEndDate, setReportEndDate] = useState('');
+    const [reportLoading, setReportLoading] = useState(false);
+    const [reportPreview, setReportPreview] = useState(null);
+    const [generatingPDF, setGeneratingPDF] = useState(false);
+
     useEffect(() => {
         fetchBookings();
         if (isAdmin && !userView) {
@@ -74,6 +81,65 @@ const AdminDashboard = ({ userView = false }) => {
             setPopularRoutes(data.data || []);
         } catch (err) {
             console.error('Failed to fetch popular routes:', err);
+        }
+    };
+
+    // Preview bookings for a date range
+    const previewReport = async () => {
+        if (!reportStartDate || !reportEndDate) {
+            showToast('error', 'Please select a start and end date');
+            return;
+        }
+
+        if (reportStartDate > reportEndDate) {
+            showToast('error', 'Start date cannot be after end date');
+            return;
+        }
+
+        try {
+            setReportLoading(true);
+            const res = await adminAPI.getBookingReport(reportStartDate, reportEndDate);
+            setReportPreview(res);
+            showToast('success', `Found ${res.count} bookings in range`);
+        } catch (err) {
+            console.error('Preview report failed:', err);
+            showToast('error', err.response?.data?.message || 'Failed to preview report');
+        } finally {
+            setReportLoading(false);
+        }
+    };
+
+    // Generate and download PDF report
+    const generatePDF = async () => {
+        if (!reportStartDate || !reportEndDate) {
+            showToast('error', 'Please select a start and end date');
+            return;
+        }
+
+        if (reportStartDate > reportEndDate) {
+            showToast('error', 'Start date cannot be after end date');
+            return;
+        }
+
+        try {
+            setGeneratingPDF(true);
+            const res = await adminAPI.generateBookingReportPDF(reportStartDate, reportEndDate, 'Booking Report');
+            // res.data is a Blob (binary)
+            const blob = new Blob([res.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `booking-report-${reportStartDate || 'all'}-to-${reportEndDate || 'all'}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            showToast('success', 'PDF generated and download will start shortly');
+        } catch (err) {
+            console.error('Generate PDF failed:', err);
+            showToast('error', err.response?.data?.message || 'Failed to generate PDF');
+        } finally {
+            setGeneratingPDF(false);
         }
     };
 
@@ -402,10 +468,63 @@ const AdminDashboard = ({ userView = false }) => {
                             >
                                 ✅ Reactivate Selected
                             </motion.button>
+                        {/* Booking Report Generator */}
+                        <motion.div
+                            className="w-full flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mt-3"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.5, delay: 0.9 }}
+                        >
+                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Start Date</label>
+                                    <input type="date" value={reportStartDate} onChange={(e) => setReportStartDate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">End Date</label>
+                                    <input type="date" value={reportEndDate} onChange={(e) => setReportEndDate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <motion.button
+                                    onClick={previewReport}
+                                    className="px-4 py-2 bg-white/90 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-white"
+                                    whileHover={{ scale: 1.03 }}
+                                >
+                                    {reportLoading ? 'Loading…' : 'Preview'}
+                                </motion.button>
+                                <motion.button
+                                    onClick={generatePDF}
+                                    className="px-4 py-2 bg-slate-blue text-white rounded-lg text-sm font-semibold hover:bg-slate-700"
+                                    whileHover={{ scale: 1.03 }}
+                                >
+                                    {generatingPDF ? 'Generating…' : 'Generate PDF'}
+                                </motion.button>
+                            </div>
+                        </motion.div>
+
+                        {/* Report Preview */}
+                        {reportPreview && (
+                            <motion.div className="mt-4 p-4 bg-gradient-to-r from-white/40 to-slate-blue/5 rounded-lg border border-gray-200" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs text-gray-500">Bookings Found</p>
+                                        <p className="text-2xl font-bold text-slate-blue">{reportPreview.count}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-gray-500">Total Revenue</p>
+                                        <p className="text-2xl font-bold text-signal-green">Rs. {(reportPreview.totalRevenue || 0).toFixed(2)}</p>
+                                    </div>
+                                </div>
+                                <div className="mt-3 text-xs text-gray-600">Showing {Math.min(10, (reportPreview.data || []).length)} of {reportPreview.count}</div>
+                            </motion.div>
+                        )}
+
                             <motion.button
                                 onClick={handleBulkDelete}
                                 disabled={selectedIds.length === 0}
-                                className={`px-4 py-2 rounded-lg font-semibold text-white ${selectedIds.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-signal-red hover:bg-red-700'} transition-all`}
+                                className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-semibold text-white ${selectedIds.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} transition-all`}
                                 whileHover={selectedIds.length > 0 ? { scale: 1.05 } : {}}
                                 whileTap={selectedIds.length > 0 ? { scale: 0.95 } : {}}
                             >
