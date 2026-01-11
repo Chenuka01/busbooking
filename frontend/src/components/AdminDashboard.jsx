@@ -208,20 +208,20 @@ const AdminDashboard = ({ userView = false }) => {
     const showStats = isAdmin && !userView && stats;
 
     return (
-        <div className="min-h-screen py-8 px-4">
+        <div className="min-h-screen py-4 sm:py-6 md:py-8 px-3 sm:px-4 md:px-6">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8 }}
-                    className="mb-8"
+                    className="mb-6 sm:mb-8"
                 >
-                    <GlassCard className="p-8">
-                        <h1 className="text-4xl font-bold text-slate-blue mb-2">
+                    <GlassCard className="p-4 sm:p-6 md:p-8">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-blue mb-2">
                             {userView ? '📋 My Bookings' : '📊 Admin Dashboard'}
                         </h1>
-                        <p className="text-gray-600 text-lg">
+                        <p className="text-gray-600 text-sm sm:text-base md:text-lg">
                             {userView ? 'View and manage your bookings' : 'Manage and monitor all bookings'}
                         </p>
                     </GlassCard>
@@ -230,7 +230,7 @@ const AdminDashboard = ({ userView = false }) => {
                 {/* Stats Cards - Admin Only */}
                 {showStats && (
                     <motion.div
-                        className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
+                        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.2 }}
@@ -239,42 +239,44 @@ const AdminDashboard = ({ userView = false }) => {
                             whileHover={{ y: -5 }}
                             transition={{ duration: 0.3 }}
                         >
-                            <GlassCard className="p-6">
-                                <p className="text-gray-600 text-sm mb-2">Total Bookings</p>
-                                <p className="text-4xl font-bold text-slate-blue">{stats.totalBookings}</p>
-                                <div className="mt-3 text-xs text-gray-500">📊 All time</div>
+                            <GlassCard className="p-3 sm:p-4 md:p-6">
+                                <p className="text-gray-600 text-xs sm:text-sm mb-1 sm:mb-2">Total Bookings</p>
+                                <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-blue">{stats.totalBookings}</p>
+                                <div className="mt-2 sm:mt-3 text-xs text-gray-500">📊 All time</div>
                             </GlassCard>
                         </motion.div>
                         <motion.div
                             whileHover={{ y: -5 }}
                             transition={{ duration: 0.3 }}
                         >
-                            <GlassCard className="p-6">
-                                <p className="text-gray-600 text-sm mb-2">Total Revenue</p>
-                                <p className="text-4xl font-bold text-signal-green">
-                                    Rs. {stats.totalRevenue.toFixed(2)}
+                            <GlassCard className="p-3 sm:p-4 md:p-6">
+                                <p className="text-gray-600 text-xs sm:text-sm mb-1 sm:mb-2">Total Revenue</p>
+                                <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-signal-green">
+                                    <span className="hidden sm:inline">Rs. </span>
+                                    <span className="sm:hidden text-base">Rs.</span>
+                                    {stats.totalRevenue.toFixed(0)}
                                 </p>
-                                <div className="mt-3 text-xs text-gray-500">💰 Earnings</div>
+                                <div className="mt-2 sm:mt-3 text-xs text-gray-500">💰 Earnings</div>
                             </GlassCard>
                         </motion.div>
                         <motion.div
                             whileHover={{ y: -5 }}
                             transition={{ duration: 0.3 }}
                         >
-                            <GlassCard className="p-6">
-                                <p className="text-gray-600 text-sm mb-2">Today's Bookings</p>
-                                <p className="text-4xl font-bold text-coral">{stats.todayBookings}</p>
-                                <div className="mt-3 text-xs text-gray-500">📅 Today</div>
+                            <GlassCard className="p-3 sm:p-4 md:p-6">
+                                <p className="text-gray-600 text-xs sm:text-sm mb-1 sm:mb-2">Today's Bookings</p>
+                                <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-coral">{stats.todayBookings}</p>
+                                <div className="mt-2 sm:mt-3 text-xs text-gray-500">📅 Today</div>
                             </GlassCard>
                         </motion.div>
                         <motion.div
                             whileHover={{ y: -5 }}
                             transition={{ duration: 0.3 }}
                         >
-                            <GlassCard className="p-6">
-                                <p className="text-gray-600 text-sm mb-2">Active Users</p>
-                                <p className="text-4xl font-bold text-indigo-600">{stats.activeUsers}</p>
-                                <div className="mt-3 text-xs text-gray-500">👥 Users</div>
+                            <GlassCard className="p-3 sm:p-4 md:p-6">
+                                <p className="text-gray-600 text-xs sm:text-sm mb-1 sm:mb-2">Active Users</p>
+                                <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-indigo-600">{stats.activeUsers}</p>
+                                <div className="mt-2 sm:mt-3 text-xs text-gray-500">👥 Users</div>
                             </GlassCard>
                         </motion.div>
                     </motion.div>
@@ -286,17 +288,17 @@ const AdminDashboard = ({ userView = false }) => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.4 }}
-                        className="mb-8"
+                        className="mb-6 sm:mb-8"
                     >
-                        <GlassCard className="p-6">
-                            <h2 className="text-2xl font-semibold text-slate-blue mb-6">🔥 Popular Routes</h2>
-                            <div className="overflow-x-auto">
+                        <GlassCard className="p-4 sm:p-5 md:p-6">
+                            <h2 className="text-xl sm:text-2xl font-semibold text-slate-blue mb-4 sm:mb-6">🔥 Popular Routes</h2>
+                            <div className="overflow-x-auto -mx-4 sm:mx-0">
                                 <table className="min-w-full">
                                     <thead>
                                         <tr className="border-b border-gray-200">
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Route</th>
-                                            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Bookings</th>
-                                            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Revenue</th>
+                                            <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700">Route</th>
+                                            <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700">Bookings</th>
+                                            <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 hidden sm:table-cell">Revenue</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -308,13 +310,13 @@ const AdminDashboard = ({ userView = false }) => {
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ duration: 0.4, delay: idx * 0.1 }}
                                             >
-                                                <td className="py-3 px-4 font-medium text-gray-800">
+                                                <td className="py-2 sm:py-3 px-2 sm:px-4 font-medium text-gray-800 text-xs sm:text-base">
                                                     {route.origin} → {route.destination}
                                                 </td>
-                                                <td className="text-right py-3 px-4 text-slate-blue font-semibold">
+                                                <td className="text-right py-2 sm:py-3 px-2 sm:px-4 text-slate-blue font-semibold text-xs sm:text-base">
                                                     {route.total_bookings || 0}
                                                 </td>
-                                                <td className="text-right py-3 px-4 text-signal-green font-semibold">
+                                                <td className="text-right py-2 sm:py-3 px-2 sm:px-4 text-signal-green font-semibold text-xs sm:text-base hidden sm:table-cell">
                                                     Rs. {parseFloat(route.total_revenue || 0).toFixed(2)}
                                                 </td>
                                             </motion.tr>
@@ -344,20 +346,20 @@ const AdminDashboard = ({ userView = false }) => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.6 }}
                 >
-                    <GlassCard className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-                            <h2 className="text-2xl font-semibold text-slate-blue mb-4 md:mb-0">
+                    <GlassCard className="p-4 sm:p-5 md:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
+                            <h2 className="text-xl sm:text-2xl font-semibold text-slate-blue">
                                 {userView ? '📋 Your Bookings' : '📊 All Bookings'}
                             </h2>
 
                             {/* Search Bar */}
-                            <div className="relative">
+                            <div className="relative w-full sm:w-auto">
                                 <input
                                     type="text"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Search by ID, name, phone, seat..."
-                                    className="w-full md:w-80 px-4 py-2 pl-10 bg-white/60 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-blue focus:border-transparent transition-all"
+                                    placeholder="Search bookings..."
+                                    className="w-full sm:w-60 md:w-80 px-3 sm:px-4 py-2 pl-9 sm:pl-10 text-sm bg-white/60 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-blue focus:border-transparent transition-all"
                                 />
                                 <svg
                                     className="absolute left-3 top-3 w-5 h-5 text-gray-400"
@@ -377,7 +379,7 @@ const AdminDashboard = ({ userView = false }) => {
 
                     {!userView && isAdmin && (
                         <motion.div
-                            className="flex flex-wrap gap-3 mb-6"
+                            className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6"
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.6, delay: 0.8 }}
@@ -385,7 +387,7 @@ const AdminDashboard = ({ userView = false }) => {
                             <motion.button
                                 onClick={handleBulkCancel}
                                 disabled={selectedIds.length === 0}
-                                className={`px-4 py-2 rounded-lg font-semibold text-white ${selectedIds.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-coral hover:bg-orange-600'} transition-all`}
+                                className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-semibold text-white ${selectedIds.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-coral hover:bg-orange-600'} transition-all`}
                                 whileHover={selectedIds.length > 0 ? { scale: 1.05 } : {}}
                                 whileTap={selectedIds.length > 0 ? { scale: 0.95 } : {}}
                             >
@@ -394,7 +396,7 @@ const AdminDashboard = ({ userView = false }) => {
                             <motion.button
                                 onClick={handleReactivate}
                                 disabled={selectedIds.length === 0}
-                                className={`px-4 py-2 rounded-lg font-semibold text-white ${selectedIds.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-signal-green hover:bg-green-700'} transition-all`}
+                                className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-semibold text-white ${selectedIds.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-signal-green hover:bg-green-700'} transition-all`}
                                 whileHover={selectedIds.length > 0 ? { scale: 1.05 } : {}}
                                 whileTap={selectedIds.length > 0 ? { scale: 0.95 } : {}}
                             >
