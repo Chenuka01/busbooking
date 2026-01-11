@@ -189,6 +189,12 @@ export const adminAPI = {
         return response.data;
     },
 
+    // Bulk delete users (skips admin users)
+    bulkDeleteUsers: async (userIds) => {
+        const response = await api.post('/admin/users/bulk-delete', { userIds });
+        return response.data;
+    },
+
     // ========== ROUTE MANAGEMENT ==========
     
     // Create new route

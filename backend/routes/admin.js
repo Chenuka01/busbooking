@@ -634,6 +634,37 @@ router.patch('/users/:userId/status', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/admin/users/bulk-delete
+ * Delete multiple users by id (skips admin users to prevent accidental removal)
+ */
+router.post('/users/bulk-delete', async (req, res) => {
+    try {
+        const { userIds } = req.body;
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ success: false, message: 'No user IDs provided' });
+        }
+
+        // Build placeholders and execute delete while skipping admin role users
+        const placeholders = userIds.map(() => '?').join(',');
+        const sql = `DELETE FROM Users WHERE id IN (${placeholders}) AND role != 'admin'`;
+        const [result] = await db.query(sql, userIds);
+
+        res.json({
+            success: true,
+            deletedCount: result.affectedRows
+        });
+
+    } catch (error) {
+        console.error('Error bulk deleting users:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete users',
+            error: error.message
+        });
+    }
+});
+
 // ========================================
 // ROUTE MANAGEMENT
 // ========================================

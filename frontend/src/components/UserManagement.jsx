@@ -10,6 +10,9 @@ const UserManagement = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filteredUsers, setFilteredUsers] = useState([]);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [selectAllChecked, setSelectAllChecked] = useState(false);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
     const { isAdmin } = useAuth();
     const { showToast } = useToast();
 
@@ -106,28 +109,56 @@ const UserManagement = () => {
                     <GlassCard className="p-6">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                             <h2 className="text-2xl font-semibold text-slate-blue mb-4 md:mb-0">👤 All Users</h2>
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Search by email, name, phone..."
-                                    className="w-full md:w-80 px-4 py-2 pl-10 bg-white/60 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-blue focus:border-transparent transition-all"
-                            />
-                            <svg
-                                className="absolute left-3 top-3 w-5 h-5 text-gray-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                                />
-                            </svg>
-                        </div>
+                            <div className="flex items-center space-x-4">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="Search by email, name, phone..."
+                                        className="w-full md:w-80 px-4 py-2 pl-10 bg-white/60 backdrop-blur-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-blue focus:border-transparent transition-all"
+                                    />
+                                    <svg
+                                        className="absolute left-3 top-3 w-5 h-5 text-gray-400"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                        />
+                                    </svg>
+                                </div>
+
+                                {/* Bulk actions */}
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={async () => {
+                                            // Select all non-admin users on click
+                                            const ids = new Set();
+                                            filteredUsers.forEach(u => { if (u.role !== 'admin') ids.add(u.id); });
+                                            setSelectedIds(ids);
+                                            setSelectAllChecked(true);
+                                        }}
+                                        className="px-3 py-2 bg-gray-100 text-sm rounded-lg border border-gray-200 hover:bg-gray-200"
+                                    >
+                                        Select All
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setSelectedIds(new Set());
+                                            setSelectAllChecked(false);
+                                        }}
+                                        className="px-3 py-2 bg-white text-sm rounded-lg border border-gray-200 hover:bg-gray-50"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
                     </div>
 
                     {loading ? (
@@ -152,10 +183,67 @@ const UserManagement = () => {
                             <p className="text-gray-600 text-xl">No users found.</p>
                         </motion.div>
                     ) : (
+                        <>
+                        {/* Bulk actions bar */}
+                        {selectedIds.size > 0 && (
+                            <div className="mb-4 flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                                <div className="text-sm font-medium text-gray-700">✅ {selectedIds.size} selected</div>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm(`Delete ${selectedIds.size} selected users? This cannot be undone (admin users are protected).`)) return;
+                                            try {
+                                                setBulkDeleting(true);
+                                                const ids = Array.from(selectedIds);
+                                                const res = await adminAPI.bulkDeleteUsers(ids);
+                                                showToast('success', `Deleted ${res.deletedCount} users`);
+                                                setSelectedIds(new Set());
+                                                setSelectAllChecked(false);
+                                                await fetchUsers();
+                                            } catch (err) {
+                                                console.error('Bulk delete failed:', err);
+                                                showToast('error', err.response?.data?.message || 'Failed to delete selected users');
+                                            } finally {
+                                                setBulkDeleting(false);
+                                            }
+                                        }}
+                                        disabled={bulkDeleting}
+                                        className={`px-4 py-2 ${bulkDeleting ? 'bg-red-300' : 'bg-red-600'} text-white rounded-lg text-sm font-semibold hover:bg-red-700 ${bulkDeleting ? 'cursor-not-allowed' : ''}`}
+                                    >
+                                        🗑️ {bulkDeleting ? 'Deleting...' : 'Delete Selected'}
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setSelectedIds(new Set()); setSelectAllChecked(false); }}
+                                        className="px-3 py-2 bg-white text-sm rounded-lg border border-gray-200 hover:bg-gray-50"
+                                    >
+                                        Clear Selection
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-white/50 backdrop-blur-sm border-b-2 border-gray-200">
                                     <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectAllChecked}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setSelectAllChecked(checked);
+                                                    if (checked) {
+                                                        const ids = new Set();
+                                                        filteredUsers.forEach(u => { if (u.role !== 'admin') ids.add(u.id); });
+                                                        setSelectedIds(ids);
+                                                    } else {
+                                                        setSelectedIds(new Set());
+                                                    }
+                                                }}
+                                            />
+                                        </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                             Email
                                         </th>
@@ -189,11 +277,22 @@ const UserManagement = () => {
                                             transition={{ duration: 0.4, delay: Math.min(index * 0.05, 1) }}
                                         >
                                             <td className="px-4 py-4 whitespace-nowrap">
+                                                <input
+                                                    type="checkbox"
+                                                    disabled={u.role === 'admin'}
+                                                    checked={selectedIds.has(u.id)}
+                                                    onChange={(e) => {
+                                                        const ids = new Set(selectedIds);
+                                                        if (e.target.checked) ids.add(u.id);
+                                                        else ids.delete(u.id);
+                                                        setSelectedIds(ids);
+                                                        setSelectAllChecked(filteredUsers.filter(f => f.role !== 'admin').every(f => ids.has(f.id)));
+                                                    }}
+                                                />
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
                                                     <span className="text-sm text-gray-800">{u.email}</span>
-                                                    {u.email_verified && (
-                                                        <span className="ml-2 text-green-500" title="Verified">✓</span>
-                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 whitespace-nowrap">
@@ -230,18 +329,21 @@ const UserManagement = () => {
                                 </tbody>
                             </table>
                         </div>
+                        </>
                     )}
 
-                        <motion.div
-                            className="mt-6 flex items-center justify-between p-4 bg-white/50 rounded-lg"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.6, delay: 0.8 }}
-                        >
-                            <p className="text-sm text-gray-700 font-medium">
-                                📊 Showing {filteredUsers.length} of {users.length} users
-                            </p>
-                        </motion.div>
+                        {filteredUsers.length > 0 && (
+                            <motion.div
+                                className="mt-6 flex items-center justify-between p-4 bg-white/50 rounded-lg"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.8 }}
+                            >
+                                <p className="text-sm text-gray-700 font-medium">
+                                    📊 Showing {filteredUsers.length} of {users.length} users
+                                </p>
+                            </motion.div>
+                        )}
                     </GlassCard>
                 </motion.div>
             </div>
