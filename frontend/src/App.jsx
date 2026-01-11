@@ -24,6 +24,7 @@ function AppContent() {
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [navTransition, setNavTransition] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const { user, logout, isAdmin } = useAuth();
 
@@ -85,7 +86,7 @@ function AppContent() {
         {/* Decorative gradient line */}
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-blue via-coral to-signal-green opacity-80"></div>
         
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             {/* CTA: Bus Seat Booking System (animated & navigates to Home) */}
             <motion.button
@@ -98,7 +99,7 @@ function AppContent() {
                   setTimeout(() => { setCurrentView('home'); setNavTransition(false); }, 750);
                 }
               }}
-              className="flex items-center gap-4 group"
+              className="flex items-center gap-2 sm:gap-4 group"
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
             >
@@ -114,7 +115,7 @@ function AppContent() {
                   ease: "easeInOut"
                 }}
               >
-                <span className="text-5xl drop-shadow-xl transform-gpu">🚌</span>
+                <span className="text-3xl sm:text-4xl lg:text-5xl drop-shadow-xl transform-gpu">🚌</span>
                 <motion.div
                   className="absolute -top-1 -right-1 w-3 h-3 bg-signal-green rounded-full"
                   animate={{ scale: [1, 1.4, 1], opacity: [1, 0.7, 1] }}
@@ -124,14 +125,15 @@ function AppContent() {
 
               <div className="flex flex-col items-start">
                 <motion.span
-                  className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-slate-blue to-indigo-600 group-hover:from-coral group-hover:to-orange-600 transition-all duration-300"
+                  className="text-sm sm:text-lg md:text-xl lg:text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-slate-blue to-indigo-600 group-hover:from-coral group-hover:to-orange-600 transition-all duration-300"
                   initial={{ y: 0 }}
                   whileHover={{ y: -3 }}
                 >
-                  Bus Seat Booking System
+                  <span className="hidden sm:inline">Bus Seat Booking System</span>
+                  <span className="sm:hidden">Bus Booking</span>
                 </motion.span>
 
-                <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center gap-3">
                   <span className="text-xs text-gray-500 font-medium">Professional System</span>
                   <motion.span
                     className="block h-[3px] rounded-full bg-gradient-to-r from-slate-blue to-coral origin-left"
@@ -157,7 +159,24 @@ function AppContent() {
               </motion.div>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* Mobile menu toggle */}
+              <motion.button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden px-3 py-2 text-slate-blue hover:bg-slate-blue/10 rounded-lg transition-colors"
+                whileTap={{ scale: 0.95 }}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {mobileMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </motion.button>
+
+              {/* Desktop Navigation */}
+              <div className="hidden lg:flex items-center gap-2">
               {/* Professional Animated Home Button */}
               <motion.div className="relative">
                 <motion.button
@@ -165,7 +184,7 @@ function AppContent() {
                     setNavTransition(true);
                     setTimeout(() => { setCurrentView('home'); setNavTransition(false); }, 750);
                   }}
-                  className="relative px-6 py-2.5 bg-white hover:bg-gradient-to-r hover:from-slate-blue hover:via-indigo-600 hover:to-slate-blue text-gray-900 hover:text-white rounded-full font-bold text-sm shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group border-2 border-gray-200 hover:border-transparent"
+                  className="relative px-4 sm:px-6 py-2 sm:py-2.5 bg-white hover:bg-gradient-to-r hover:from-slate-blue hover:via-indigo-600 hover:to-slate-blue text-gray-900 hover:text-white rounded-full font-bold text-xs sm:text-sm shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group border-2 border-gray-200 hover:border-transparent"
                   whileHover={{ scale: 1.08, y: -3 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -316,9 +335,121 @@ function AppContent() {
                   </motion.button>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        <motion.div
+          initial={false}
+          animate={{ height: mobileMenuOpen ? 'auto' : 0, opacity: mobileMenuOpen ? 1 : 0 }}
+          transition={{ duration: 0.3 }}
+          className="lg:hidden overflow-hidden"
+        >
+          <div className="px-3 pb-4 space-y-2 bg-white/95 backdrop-blur-xl">
+            {/* Home Button Mobile */}
+            <motion.button
+              onClick={() => {
+                setNavTransition(true);
+                setTimeout(() => { setCurrentView('home'); setNavTransition(false); setMobileMenuOpen(false); }, 750);
+              }}
+              className="w-full px-4 py-3 bg-white hover:bg-gradient-to-r hover:from-slate-blue hover:to-indigo-600 text-gray-900 hover:text-white rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-300 border-2 border-gray-200 hover:border-transparent flex items-center gap-2"
+              whileTap={{ scale: 0.98 }}
+            >
+              <span>🏠</span>
+              <span>Home</span>
+            </motion.button>
+
+            {user && (
+              <>
+                <motion.button
+                  onClick={() => { handleMyBookings(); setMobileMenuOpen(false); }}
+                  className="w-full px-4 py-3 text-left text-slate-blue hover:bg-slate-blue/10 rounded-xl transition-all duration-300 font-semibold text-sm flex items-center gap-2"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span>📋</span>
+                  <span>My Bookings</span>
+                </motion.button>
+                <motion.button
+                  onClick={() => { setCurrentView('contact'); setMobileMenuOpen(false); }}
+                  className="w-full px-4 py-3 text-left text-slate-blue hover:bg-slate-blue/10 rounded-xl transition-all duration-300 font-semibold text-sm flex items-center gap-2"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span>📞</span>
+                  <span>Support</span>
+                </motion.button>
+                {isAdmin && (
+                  <>
+                    <motion.button
+                      onClick={() => { handleAdminToggle(); setMobileMenuOpen(false); }}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-slate-blue to-indigo-600 text-white rounded-xl hover:from-slate-700 hover:to-indigo-700 transition-all duration-300 font-semibold text-sm shadow-lg flex items-center gap-2"
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <span>👤</span>
+                      <span>{currentView === 'admin' ? 'Back' : 'Admin Dashboard'}</span>
+                    </motion.button>
+                    <motion.button
+                      onClick={() => { setCurrentView(currentView === 'schedules' ? 'home' : 'schedules'); setMobileMenuOpen(false); }}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-coral to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 font-semibold text-sm shadow-lg flex items-center gap-2"
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <span>🗓️</span>
+                      <span>{currentView === 'schedules' ? 'Back' : 'Manage Schedules'}</span>
+                    </motion.button>
+                    <motion.button
+                      onClick={() => { setCurrentView(currentView === 'users' ? 'home' : 'users'); setMobileMenuOpen(false); }}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-signal-green to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 font-semibold text-sm shadow-lg flex items-center gap-2"
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <span>👥</span>
+                      <span>{currentView === 'users' ? 'Back' : 'Manage Users'}</span>
+                    </motion.button>
+                  </>
+                )}
+                <div className="pt-2 border-t border-gray-200">
+                  <motion.button
+                    onClick={() => { setCurrentView('profile'); setMobileMenuOpen(false); }}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-slate-blue to-indigo-600 text-white rounded-xl hover:from-slate-700 hover:to-indigo-700 transition-all duration-300 font-semibold text-sm shadow-lg flex items-center gap-2"
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span>👤</span>
+                    <span className="truncate">{user.fullName}</span>
+                  </motion.button>
+                  <motion.button
+                    onClick={() => { logout(); setMobileMenuOpen(false); }}
+                    className="w-full mt-2 px-4 py-3 bg-gradient-to-r from-signal-red to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 font-semibold text-sm shadow-lg flex items-center gap-2"
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span>🚪</span>
+                    <span>Logout</span>
+                  </motion.button>
+                </div>
+              </>
+            )}
+            
+            {!user && (
+              <div className="pt-2 space-y-2 border-t border-gray-200">
+                <motion.button
+                  onClick={() => { setShowLogin(true); setMobileMenuOpen(false); }}
+                  className="w-full px-4 py-3 text-slate-blue border-2 border-slate-blue rounded-xl hover:bg-slate-blue hover:text-white transition-all duration-300 font-semibold text-sm shadow-md flex items-center gap-2 justify-center"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span>🔐</span>
+                  <span>Login</span>
+                </motion.button>
+                <motion.button
+                  onClick={() => { setShowRegister(true); setMobileMenuOpen(false); }}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-coral to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 font-semibold text-sm shadow-lg flex items-center gap-2 justify-center"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span>📝</span>
+                  <span>Register</span>
+                </motion.button>
+              </div>
+            )}
+          </div>
+        </motion.div>
       </motion.nav>
 
       {/* Content */}
