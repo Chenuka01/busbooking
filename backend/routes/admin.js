@@ -764,9 +764,20 @@ router.delete('/routes/:routeId', async (req, res) => {
         );
 
         if (schedules[0].count > 0) {
+            // Get schedule breakdown for better information
+            const [activeSchedules] = await db.query(
+                'SELECT COUNT(*) as count FROM Schedules WHERE route_id = ? AND status = "Scheduled"',
+                [routeId]
+            );
+
             return res.status(400).json({
                 success: false,
-                message: 'Cannot delete route with existing schedules'
+                message: 'Cannot delete route with existing schedules. Please delete or cancel all schedules first.',
+                scheduleCount: schedules[0].count,
+                activeScheduleCount: activeSchedules[0].count,
+                suggestion: activeSchedules[0].count > 0 
+                    ? 'Cancel active schedules before deleting this route'
+                    : 'Delete completed/cancelled schedules before deleting this route'
             });
         }
 
@@ -787,6 +798,86 @@ router.delete('/routes/:routeId', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/admin/routes/bulk-delete
+ * Bulk delete routes (only those without schedules)
+ */
+router.post('/routes/bulk-delete', async (req, res) => {
+    try {
+        const { routeIds } = req.body;
+
+        if (!routeIds || !Array.isArray(routeIds) || routeIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'routeIds array is required and must not be empty'
+            });
+        }
+
+        // Check each route for schedules
+        const results = {
+            deleted: [],
+            skipped: [],
+            errors: []
+        };
+
+        for (const routeId of routeIds) {
+            try {
+                // Check if route has schedules
+                const [schedules] = await db.query(
+                    'SELECT COUNT(*) as count FROM Schedules WHERE route_id = ?',
+                    [routeId]
+                );
+
+                if (schedules[0].count > 0) {
+                    // Get active schedule count
+                    const [activeSchedules] = await db.query(
+                        'SELECT COUNT(*) as count FROM Schedules WHERE route_id = ? AND status = "Scheduled"',
+                        [routeId]
+                    );
+
+                    results.skipped.push({
+                        id: routeId,
+                        reason: 'Has existing schedules',
+                        scheduleCount: schedules[0].count,
+                        activeScheduleCount: activeSchedules[0].count
+                    });
+                } else {
+                    // Safe to delete
+                    await db.query('DELETE FROM Routes WHERE id = ?', [routeId]);
+                    results.deleted.push(routeId);
+                }
+            } catch (error) {
+                results.errors.push({
+                    id: routeId,
+                    error: error.message
+                });
+            }
+        }
+
+        const summary = {
+            total: routeIds.length,
+            deleted: results.deleted.length,
+            skipped: results.skipped.length,
+            errors: results.errors.length
+        };
+
+        res.json({
+            success: true,
+            message: `Bulk delete completed: ${summary.deleted} deleted, ${summary.skipped} skipped, ${summary.errors} errors`,
+            summary,
+            results
+        });
+
+    } catch (error) {
+        console.error('Error in bulk delete routes:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to perform bulk delete',
+            error: error.message
+        });
+    }
+});
+
 // ========================================
 // BUS MANAGEMENT
 // ========================================
@@ -798,7 +889,12 @@ router.delete('/routes/:routeId', async (req, res) => {
 router.get('/buses', async (req, res) => {
     try {
         const [buses] = await db.query(`
-            SELECT * FROM Buses ORDER BY bus_number
+            SELECT 
+                b.*,
+                (SELECT COUNT(*) FROM Schedules WHERE bus_id = b.id) as schedule_count,
+                (SELECT COUNT(*) FROM Schedules WHERE bus_id = b.id AND status = 'Scheduled') as active_schedule_count
+            FROM Buses b 
+            ORDER BY bus_number
         `);
 
         res.json({
@@ -925,9 +1021,20 @@ router.delete('/buses/:busId', async (req, res) => {
         );
 
         if (schedules[0].count > 0) {
+            // Get schedule breakdown for better information
+            const [activeSchedules] = await db.query(
+                'SELECT COUNT(*) as count FROM Schedules WHERE bus_id = ? AND status = "Scheduled"',
+                [busId]
+            );
+
             return res.status(400).json({
                 success: false,
-                message: 'Cannot delete bus with existing schedules'
+                message: 'Cannot delete bus with existing schedules. Please delete or cancel all schedules first.',
+                scheduleCount: schedules[0].count,
+                activeScheduleCount: activeSchedules[0].count,
+                suggestion: activeSchedules[0].count > 0 
+                    ? 'Cancel active schedules before deleting this bus'
+                    : 'Delete completed/cancelled schedules before deleting this bus'
             });
         }
 
@@ -943,6 +1050,86 @@ router.delete('/buses/:busId', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to delete bus',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/admin/buses/bulk-delete
+ * Bulk delete buses (only those without schedules)
+ */
+router.post('/buses/bulk-delete', async (req, res) => {
+    try {
+        const { busIds } = req.body;
+
+        if (!busIds || !Array.isArray(busIds) || busIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'busIds array is required and must not be empty'
+            });
+        }
+
+        // Check each bus for schedules
+        const results = {
+            deleted: [],
+            skipped: [],
+            errors: []
+        };
+
+        for (const busId of busIds) {
+            try {
+                // Check if bus has schedules
+                const [schedules] = await db.query(
+                    'SELECT COUNT(*) as count FROM Schedules WHERE bus_id = ?',
+                    [busId]
+                );
+
+                if (schedules[0].count > 0) {
+                    // Get active schedule count
+                    const [activeSchedules] = await db.query(
+                        'SELECT COUNT(*) as count FROM Schedules WHERE bus_id = ? AND status = "Scheduled"',
+                        [busId]
+                    );
+
+                    results.skipped.push({
+                        id: busId,
+                        reason: 'Has existing schedules',
+                        scheduleCount: schedules[0].count,
+                        activeScheduleCount: activeSchedules[0].count
+                    });
+                } else {
+                    // Safe to delete
+                    await db.query('DELETE FROM Buses WHERE id = ?', [busId]);
+                    results.deleted.push(busId);
+                }
+            } catch (error) {
+                results.errors.push({
+                    id: busId,
+                    error: error.message
+                });
+            }
+        }
+
+        const summary = {
+            total: busIds.length,
+            deleted: results.deleted.length,
+            skipped: results.skipped.length,
+            errors: results.errors.length
+        };
+
+        res.json({
+            success: true,
+            message: `Bulk delete completed: ${summary.deleted} deleted, ${summary.skipped} skipped, ${summary.errors} errors`,
+            summary,
+            results
+        });
+
+    } catch (error) {
+        console.error('Error in bulk delete buses:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to perform bulk delete',
             error: error.message
         });
     }
@@ -1173,6 +1360,89 @@ router.put('/schedules/:scheduleId', async (req, res) => {
 });
 
 /**
+ * POST /api/admin/schedules/:scheduleId/duplicate
+ * Duplicate an existing schedule with a new date
+ */
+router.post('/schedules/:scheduleId/duplicate', async (req, res) => {
+    try {
+        const { scheduleId } = req.params;
+        const { travel_date, departure_time, arrival_time } = req.body;
+
+        if (!travel_date) {
+            return res.status(400).json({
+                success: false,
+                message: 'New travel_date is required to duplicate schedule'
+            });
+        }
+
+        // Get the original schedule details
+        const [originalSchedule] = await db.query(`
+            SELECT route_id, bus_id, departure_time, arrival_time 
+            FROM Schedules 
+            WHERE id = ?
+        `, [scheduleId]);
+
+        if (originalSchedule.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Original schedule not found'
+            });
+        }
+
+        const schedule = originalSchedule[0];
+        const newDepartureTime = departure_time || schedule.departure_time;
+        const newArrivalTime = arrival_time || schedule.arrival_time;
+
+        // Check if schedule already exists for this bus/date/time
+        const [existing] = await db.query(`
+            SELECT id FROM Schedules 
+            WHERE bus_id = ? AND travel_date = ? AND departure_time = ?
+        `, [schedule.bus_id, travel_date, newDepartureTime]);
+
+        if (existing.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'A schedule already exists for this bus at this date and time'
+            });
+        }
+
+        // Get bus total seats
+        const [bus] = await db.query('SELECT total_seats FROM Buses WHERE id = ?', [schedule.bus_id]);
+        const available_seats = bus[0].total_seats;
+
+        // Create the duplicate schedule
+        const [result] = await db.query(`
+            INSERT INTO Schedules 
+            (route_id, bus_id, travel_date, departure_time, arrival_time, available_seats, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'Scheduled')
+        `, [schedule.route_id, schedule.bus_id, travel_date, newDepartureTime, newArrivalTime, available_seats]);
+
+        res.status(201).json({
+            success: true,
+            message: 'Schedule duplicated successfully',
+            data: {
+                id: result.insertId,
+                route_id: schedule.route_id,
+                bus_id: schedule.bus_id,
+                travel_date,
+                departure_time: newDepartureTime,
+                arrival_time: newArrivalTime,
+                available_seats,
+                status: 'Scheduled'
+            }
+        });
+
+    } catch (error) {
+        console.error('Error duplicating schedule:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to duplicate schedule',
+            error: error.message
+        });
+    }
+});
+
+/**
  * DELETE /api/admin/schedules/:scheduleId
  * Delete a schedule (only if no bookings exist)
  */
@@ -1182,14 +1452,16 @@ router.delete('/schedules/:scheduleId', async (req, res) => {
 
         // Check if schedule has bookings
         const [bookings] = await db.query(
-            'SELECT COUNT(*) as count FROM Bookings WHERE schedule_id = ?',
+            'SELECT COUNT(*) as count FROM Bookings WHERE schedule_id = ? AND booking_status = "Confirmed"',
             [scheduleId]
         );
 
         if (bookings[0].count > 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Cannot delete schedule with existing bookings. Consider cancelling it instead.'
+                message: 'Cannot delete schedule with existing bookings. Consider cancelling it instead.',
+                bookingCount: bookings[0].count,
+                canCancel: true
             });
         }
 
@@ -1211,6 +1483,79 @@ router.delete('/schedules/:scheduleId', async (req, res) => {
 });
 
 /**
+ * POST /api/admin/schedules/bulk-delete
+ * Bulk delete schedules (only those without confirmed bookings)
+ */
+router.post('/schedules/bulk-delete', async (req, res) => {
+    try {
+        const { scheduleIds } = req.body;
+
+        if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'scheduleIds array is required and must not be empty'
+            });
+        }
+
+        // Check each schedule for bookings
+        const results = {
+            deleted: [],
+            skipped: [],
+            errors: []
+        };
+
+        for (const scheduleId of scheduleIds) {
+            try {
+                // Check if schedule has confirmed bookings
+                const [bookings] = await db.query(
+                    'SELECT COUNT(*) as count FROM Bookings WHERE schedule_id = ? AND booking_status = "Confirmed"',
+                    [scheduleId]
+                );
+
+                if (bookings[0].count > 0) {
+                    results.skipped.push({
+                        id: scheduleId,
+                        reason: 'Has confirmed bookings',
+                        bookingCount: bookings[0].count
+                    });
+                } else {
+                    // Safe to delete
+                    await db.query('DELETE FROM Schedules WHERE id = ?', [scheduleId]);
+                    results.deleted.push(scheduleId);
+                }
+            } catch (error) {
+                results.errors.push({
+                    id: scheduleId,
+                    error: error.message
+                });
+            }
+        }
+
+        const summary = {
+            total: scheduleIds.length,
+            deleted: results.deleted.length,
+            skipped: results.skipped.length,
+            errors: results.errors.length
+        };
+
+        res.json({
+            success: true,
+            message: `Bulk delete completed: ${summary.deleted} deleted, ${summary.skipped} skipped, ${summary.errors} errors`,
+            summary,
+            results
+        });
+
+    } catch (error) {
+        console.error('Error in bulk delete:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to perform bulk delete',
+            error: error.message
+        });
+    }
+});
+
+/**
  * PATCH /api/admin/schedules/:scheduleId/status
  * Update schedule status (Scheduled, Cancelled, Completed)
  */
@@ -1224,6 +1569,14 @@ router.patch('/schedules/:scheduleId/status', async (req, res) => {
                 success: false,
                 message: 'Invalid status. Must be: Scheduled, Cancelled, or Completed'
             });
+        }
+
+        // If cancelling, update all confirmed bookings for this schedule
+        if (status === 'Cancelled') {
+            await db.query(
+                'UPDATE Bookings SET booking_status = "Cancelled", cancelled_at = NOW(), cancellation_reason = "Schedule cancelled by admin" WHERE schedule_id = ? AND booking_status = "Confirmed"',
+                [scheduleId]
+            );
         }
 
         await db.query(

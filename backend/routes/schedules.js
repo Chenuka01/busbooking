@@ -262,7 +262,14 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
  */
 router.get('/routes', async (req, res) => {
     try {
-        const [routes] = await db.query('SELECT * FROM Routes ORDER BY origin, destination');
+        const [routes] = await db.query(`
+            SELECT 
+                r.*,
+                (SELECT COUNT(*) FROM Schedules WHERE route_id = r.id) as schedule_count,
+                (SELECT COUNT(*) FROM Schedules WHERE route_id = r.id AND status = 'Scheduled') as active_schedule_count
+            FROM Routes r 
+            ORDER BY origin, destination
+        `);
         res.json({
             success: true,
             data: routes
